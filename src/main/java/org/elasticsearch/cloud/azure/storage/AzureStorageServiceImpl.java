@@ -115,6 +115,7 @@ public class AzureStorageServiceImpl extends AbstractLifecycleComponent<AzureSto
             // NOTE: for now, just set the location mode in case it is different; 
             // only one mode per storage account can be active at a time
             client.getDefaultRequestOptions().setLocationMode(mode);
+            client.getDefaultRequestOptions().setTimeoutIntervalInMs(5 * 60 * 1000);   // 5 minutes
             return client;
         }
 
