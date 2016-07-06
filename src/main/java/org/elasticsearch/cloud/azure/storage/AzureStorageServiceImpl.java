@@ -22,6 +22,7 @@ package org.elasticsearch.cloud.azure.storage;
 import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.LocationMode;
+import com.microsoft.azure.storage.RetryExponentialRetry;
 import com.microsoft.azure.storage.blob.*;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.cloud.azure.AzureSettingsFilter;
@@ -116,6 +117,11 @@ public class AzureStorageServiceImpl extends AbstractLifecycleComponent<AzureSto
             // only one mode per storage account can be active at a time
             client.getDefaultRequestOptions().setLocationMode(mode);
             client.getDefaultRequestOptions().setTimeoutIntervalInMs(5 * 60 * 1000);   // 5 minutes
+            client.getDefaultRequestOptions().setRetryPolicyFactory(new RetryExponentialRetry(1000 * 30, 7));
+
+            // Exponential retry gets us ~8 minutes of retries when the error returns immediately (e.g., throttling);
+            // 5 minutes max timeout per call results in an overall max of 35 minutes of calls and waiting and retrying
+
             return client;
         }
 
