@@ -42,6 +42,8 @@ public interface AzureStorageService {
         public static final String API_IMPLEMENTATION = "cloud.azure.storage.api.impl";
         public static final String ACCOUNT = "cloud.azure.storage.account";
         public static final String KEY = "cloud.azure.storage.key";
+        public static final String SECONDARY_ACCOUNTS = "cloud.azure.storage.secondary.account";
+        public static final String SECONDARY_KEYS = "cloud.azure.storage.secondary.key";
         public static final String CONTAINER = "repositories.azure.container";
         public static final String BASE_PATH = "repositories.azure.base_path";
         public static final String CHUNK_SIZE = "repositories.azure.chunk_size";

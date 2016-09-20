@@ -22,6 +22,7 @@ package org.elasticsearch.cloud.azure.blobstore;
 import com.microsoft.azure.storage.StorageException;
 import com.microsoft.azure.storage.LocationMode;
 import org.elasticsearch.cloud.azure.storage.AzureStorageService;
+import org.elasticsearch.common.base.Strings;
 import org.elasticsearch.common.blobstore.BlobContainer;
 import org.elasticsearch.common.blobstore.BlobMetaData;
 import org.elasticsearch.common.blobstore.BlobPath;
@@ -35,7 +36,6 @@ import org.elasticsearch.repositories.RepositorySettings;
 
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.ByteArrayOutputStream;
 
 import java.net.URISyntaxException;
 
@@ -65,12 +65,11 @@ public class AzureBlobStore extends AbstractComponent implements BlobStore {
 
         this.accountName = repositorySettings.settings().get(Repository.ACCOUNT, null);
         // NOTE: null account means to use the first one specified in config
-        
+
         String modeStr = repositorySettings.settings().get(Repository.LOCATION_MODE, null);
         if (modeStr == null) {
             this.locMode = LocationMode.PRIMARY_ONLY;
-        }
-        else {
+        } else {
             this.locMode = LocationMode.valueOf(modeStr.toUpperCase());
         }
     }
@@ -96,8 +95,15 @@ public class AzureBlobStore extends AbstractComponent implements BlobStore {
             keyPath = keyPath + "/";
         }
 
+        final String[] accounts = this.getAccounts();
         try {
-            this.client.deleteFiles(this.accountName, this.locMode, container, keyPath);
+            if (accounts.length == 0) {
+                this.client.deleteFiles(null, this.locMode, container, keyPath);
+            } else {
+                for (String account : accounts) {
+                    this.client.deleteFiles(account, this.locMode, container, keyPath);
+                }
+            }
         } catch (URISyntaxException | StorageException e) {
             logger.warn("can not remove [{}] in container {{}}: {}", keyPath, container, e.getMessage());
         }
@@ -107,48 +113,120 @@ public class AzureBlobStore extends AbstractComponent implements BlobStore {
     public void close() {
     }
 
-    public boolean doesContainerExist(String container)
-    {
-        return this.client.doesContainerExist(this.accountName, this.locMode, container);
+    private String[] getAccounts() {
+        if (Strings.isNullOrEmpty(this.accountName ))
+            return new String[0];
+
+        return this.accountName.split(",");
     }
 
-    public void removeContainer(String container) throws URISyntaxException, StorageException
-    {
-        this.client.removeContainer(this.accountName, this.locMode, container);
+    private String getAccount(String container, String blob) {
+        final String[] accounts = this.getAccounts();
+        if (accounts.length == 0) {
+            return null;
+        }
+        int hash = this.getAccountHash(blob, accounts.length);
+        return accounts[hash];
     }
 
-    public void createContainer(String container) throws URISyntaxException, StorageException
-    {
-        this.client.createContainer(this.accountName, this.locMode, container);
+    private int getAccountHash(String blob, int numberOfAccounts) {
+        int hash = this.hashCode(blob);
+        int mod = hash % numberOfAccounts;
+        return Math.abs(mod);
     }
 
-    public void deleteFiles(String container, String path) throws URISyntaxException, StorageException
-    {
+    /**
+     * Returns a hash code for this blob name.
+     *
+     * @return  a hash code value for this blob name.
+     */
+    public int hashCode(String blob) {
+        if (Strings.isNullOrEmpty(blob))
+            return 0;
+
+        int hash = 0;
+        final char chars[] = blob.toCharArray();
+        for (char ch : chars) {
+            hash += ch;
+        }
+        return hash;
+    }
+
+    public boolean doesContainerExist(String container) {
+        final String[] accounts = this.getAccounts();
+        if (accounts.length == 0) {
+            if (!this.client.doesContainerExist(null, this.locMode, container)) {
+                return false;
+            }
+        } else {
+            for (String account : accounts) {
+                if (!this.client.doesContainerExist(account, this.locMode, container)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    public void removeContainer(String container) throws URISyntaxException, StorageException {
+        final String[] accounts = this.getAccounts();
+        if (accounts.length == 0) {
+            this.client.removeContainer(null, this.locMode, container);
+        } else {
+            for (String account : accounts) {
+                this.client.removeContainer(account, this.locMode, container);
+            }
+        }
+    }
+
+    public void createContainer(String container) throws URISyntaxException, StorageException {
+        final String[] accounts = this.getAccounts();
+        if (accounts.length == 0) {
+            this.client.createContainer(null, this.locMode, container);
+        } else {
+            for (String account : accounts) {
+                this.client.createContainer(account, this.locMode, container);
+            }
+        }
+    }
+
+    public void deleteFiles(String container, String path) throws URISyntaxException, StorageException {
         this.client.deleteFiles(this.accountName, this.locMode, container, path);
     }
 
-    public boolean blobExists(String container, String blob) throws URISyntaxException, StorageException
-    {
-        return this.client.blobExists(this.accountName, this.locMode, container, blob);
+    public boolean blobExists(String container, String blob) throws URISyntaxException, StorageException {
+        String account = this.getAccount(container, blob);
+        return this.client.blobExists(account, this.locMode, container, blob);
     }
 
-    public void deleteBlob(String container, String blob) throws URISyntaxException, StorageException
-    {
-        this.client.deleteBlob(this.accountName, this.locMode, container, blob);
+    public void deleteBlob(String container, String blob) throws URISyntaxException, StorageException {
+        String account = this.getAccount(container, blob);
+        this.client.deleteBlob(account, this.locMode, container, blob);
     }
 
-    public InputStream getInputStream(String container, String blob) throws URISyntaxException, StorageException
-    {
-        return this.client.getInputStream(this.accountName, this.locMode, container, blob);
+    public InputStream getInputStream(String container, String blob) throws URISyntaxException, StorageException {
+        String account = this.getAccount(container, blob);
+        return this.client.getInputStream(account, this.locMode, container, blob);
     }
 
-    public OutputStream getOutputStream(String container, String blob) throws URISyntaxException, StorageException
-    {
-        return this.client.getOutputStream(this.accountName, this.locMode, container, blob);
+    public OutputStream getOutputStream(String container, String blob) throws URISyntaxException, StorageException {
+        String account = this.getAccount(container, blob);
+        return this.client.getOutputStream(account, this.locMode, container, blob);
     }
 
-    public ImmutableMap<String,BlobMetaData> listBlobsByPrefix(String container, String keyPath, String prefix) throws URISyntaxException, StorageException
-    {
-        return this.client.listBlobsByPrefix(this.accountName, this.locMode, container, keyPath, prefix);
+    public ImmutableMap<String, BlobMetaData> listBlobsByPrefix(String container, String keyPath, String prefix) throws URISyntaxException, StorageException {
+        final String[] accounts = this.getAccounts();
+        ImmutableMap.Builder<String, BlobMetaData> blobsBuilder = ImmutableMap.builder();
+
+        if (accounts.length == 0) {
+            ImmutableMap<String, BlobMetaData> blobs = this.client.listBlobsByPrefix(null, this.locMode, container, keyPath, prefix);
+            blobsBuilder.putAll(blobs);
+        } else {
+            for (String account : accounts) {
+                ImmutableMap<String, BlobMetaData> blobs = this.client.listBlobsByPrefix(account, this.locMode, container, keyPath, prefix);
+                blobsBuilder.putAll(blobs);
+            }
+        }
+        return blobsBuilder.build();
     }
 }
