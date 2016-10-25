@@ -120,16 +120,16 @@ public class AzureBlobStore extends AbstractComponent implements BlobStore {
         return this.accountName.split(",");
     }
 
-    private String getAccount(String container, String blob) {
+    private String getAccount(String blob) {
         final String[] accounts = this.getAccounts();
         if (accounts.length == 0) {
             return null;
         }
-        int hash = this.getAccountHash(blob, accounts.length);
+        int hash = this.getAccountIndex(blob, accounts.length);
         return accounts[hash];
     }
 
-    private int getAccountHash(String blob, int numberOfAccounts) {
+    private int getAccountIndex(String blob, int numberOfAccounts) {
         int hash = this.hashCode(blob);
         int mod = hash % numberOfAccounts;
         return Math.abs(mod);
@@ -195,22 +195,22 @@ public class AzureBlobStore extends AbstractComponent implements BlobStore {
     }
 
     public boolean blobExists(String container, String blob) throws URISyntaxException, StorageException {
-        String account = this.getAccount(container, blob);
+        String account = this.getAccount(blob);
         return this.client.blobExists(account, this.locMode, container, blob);
     }
 
     public void deleteBlob(String container, String blob) throws URISyntaxException, StorageException {
-        String account = this.getAccount(container, blob);
+        String account = this.getAccount(blob);
         this.client.deleteBlob(account, this.locMode, container, blob);
     }
 
     public InputStream getInputStream(String container, String blob) throws URISyntaxException, StorageException {
-        String account = this.getAccount(container, blob);
+        String account = this.getAccount(blob);
         return this.client.getInputStream(account, this.locMode, container, blob);
     }
 
     public OutputStream getOutputStream(String container, String blob) throws URISyntaxException, StorageException {
-        String account = this.getAccount(container, blob);
+        String account = this.getAccount(blob);
         return this.client.getOutputStream(account, this.locMode, container, blob);
     }
 
