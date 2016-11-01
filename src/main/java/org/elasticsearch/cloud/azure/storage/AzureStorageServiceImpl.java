@@ -53,9 +53,6 @@ public class AzureStorageServiceImpl extends AbstractLifecycleComponent<AzureSto
     private final String[] accounts;
     private final String[] keys;
     private final Map<String, CloudBlobClient> clients;
-    private final String[] secondaryAccounts;
-    private final String[] secondaryKeys;
-    private final Map<String, CloudBlobClient> secondaryClients;
     
     @Inject
     public AzureStorageServiceImpl(Settings settings, SettingsFilter settingsFilter) {
@@ -67,13 +64,6 @@ public class AzureStorageServiceImpl extends AbstractLifecycleComponent<AzureSto
         this.clients = new Hashtable<String, CloudBlobClient>();
         if (this.accounts.length != this.keys.length) {
             throw new IllegalArgumentException("Azure cloud plug-in accounts and keys arrays must be the same length");
-        }
-
-        this.secondaryAccounts = settings.getAsArray(SECONDARY_ACCOUNTS, settings.getAsArray(ACCOUNT_DEPRECATED));
-        this.secondaryKeys = settings.getAsArray(SECONDARY_KEYS, settings.getAsArray(KEY_DEPRECATED));
-        this.secondaryClients = new Hashtable<String, CloudBlobClient>();
-        if (this.secondaryAccounts.length != this.secondaryKeys.length) {
-            throw new IllegalArgumentException("Azure cloud plug-in secondary accounts and keys arrays must be the same length");
         }
     }
 
@@ -110,12 +100,6 @@ public class AzureStorageServiceImpl extends AbstractLifecycleComponent<AzureSto
         Map<String, CloudBlobClient> clients = this.clients;
         String[] accounts = this.accounts;
         String[] keys = this.keys;
-
-        if (mode == LocationMode.SECONDARY_ONLY || mode == LocationMode.SECONDARY_THEN_PRIMARY) {
-            clients = this.secondaryClients;
-            accounts = this.secondaryAccounts;
-            keys = this.secondaryKeys;
-        }
 
         client = clients.get(account);
         if (client == null) {
