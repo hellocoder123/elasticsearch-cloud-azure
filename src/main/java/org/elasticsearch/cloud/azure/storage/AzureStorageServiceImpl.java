@@ -62,6 +62,7 @@ public class AzureStorageServiceImpl extends AbstractLifecycleComponent<AzureSto
         this.accounts = settings.getAsArray(ACCOUNT, settings.getAsArray(ACCOUNT_DEPRECATED));
         this.keys = settings.getAsArray(KEY, settings.getAsArray(KEY_DEPRECATED));
         this.clients = new Hashtable<String, CloudBlobClient>();
+
         if (this.accounts.length != this.keys.length) {
             throw new IllegalArgumentException("Azure cloud plug-in accounts and keys arrays must be the same length");
         }
@@ -96,18 +97,14 @@ public class AzureStorageServiceImpl extends AbstractLifecycleComponent<AzureSto
             account = this.accounts[0];
         }
         
-        CloudBlobClient client;
-        Map<String, CloudBlobClient> clients = this.clients;
-        String[] accounts = this.accounts;
-        String[] keys = this.keys;
+        CloudBlobClient client = this.clients.get(account);
 
-        client = clients.get(account);
         if (client == null) {
-            for (int i = 0; i < accounts.length; i++) {
-                if (accounts[i].equals(account)) {
-                    client = this.CreateClient(account, keys[i]);
+            for (int i = 0; i < this.accounts.length; i++) {
+                if (this.accounts[i].equals(account)) {
+                    client = this.CreateClient(account, this.keys[i]);
                     if (client != null) {
-                        clients.put(account, client);
+                        this.clients.put(account, client);
                     }
                     break;
                 }
@@ -133,7 +130,6 @@ public class AzureStorageServiceImpl extends AbstractLifecycleComponent<AzureSto
     
     @Override
     public boolean doesContainerExist(String account, LocationMode mode, String container) {
-
         try {
             CloudBlobClient client = this.getSelectedClient(account, mode);
             CloudBlobContainer blob_container = client.getContainerReference(container);
